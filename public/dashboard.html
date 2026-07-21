@@ -369,8 +369,9 @@
       const grid = ticks.map(t => `<line class="gridline" x1="${pad.left}" y1="${y(t)}" x2="${width-pad.right}" y2="${y(t)}"></line><text class="label" x="${pad.left-8}" y="${y(t)+4}" text-anchor="end">${fmt.format(t)}</text>`).join("");
       const paths = series.map((s, si) => {
         const points = s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-        const circles = s.values.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${s.highlight ? 4 : 3}" fill="${s.color || colors[si % colors.length]}"><title>${s.name} ${labels[i]}: ${v}</title></circle>`).join("");
-        return `<polyline class="series-line" points="${points}" stroke="${s.color || colors[si % colors.length]}" opacity="${s.dim ? 0.22 : 1}"></polyline>${circles}`;
+        const opacity = s.dim ? 0.12 : 1;
+        const circles = s.values.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${s.highlight ? 4 : 3}" fill="${s.color || colors[si % colors.length]}" opacity="${opacity}"><title>${s.name} ${labels[i]}: ${v}</title></circle>`).join("");
+        return `<polyline class="series-line" points="${points}" stroke="${s.color || colors[si % colors.length]}" opacity="${opacity}"></polyline>${circles}`;
       }).join("");
       const xLabels = labels.map((label, i) => i % labelEvery === 0 ? `<text class="label" x="${x(i)}" y="${height-10}" text-anchor="middle">${label}</text>` : "").join("");
       svg.innerHTML = `<line class="axis" x1="${pad.left}" y1="${height-pad.bottom}" x2="${width-pad.right}" y2="${height-pad.bottom}"></line>${grid}${paths}${xLabels}`;
@@ -451,7 +452,7 @@
         dim: selected && selected !== p.product
       }));
       svgLineChart("productChart", data.months, series);
-      document.getElementById("productLegend").innerHTML = series.map((s) => `<span><i class="swatch" style="background:${s.color}"></i>${s.name}</span>`).join("");
+      document.getElementById("productLegend").innerHTML = series.map((s) => `<span style="opacity:${s.dim ? 0.28 : 1}"><i class="swatch" style="background:${s.color}"></i>${s.name}</span>`).join("");
     }
 
     function categoryChart() {
