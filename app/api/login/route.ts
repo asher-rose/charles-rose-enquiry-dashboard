@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { passwordToken } from "../../../lib/auth";
 
 const ONE_WEEK_SECONDS = 60 * 60 * 24 * 7;
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set("dashboard_access", expectedPassword, {
+  cookieStore.set("dashboard_access", await passwordToken(expectedPassword), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

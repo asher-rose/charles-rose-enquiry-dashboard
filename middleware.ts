@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { passwordToken } from "./lib/auth";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -15,7 +16,7 @@ export function middleware(request: NextRequest) {
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
   const accessCookie = request.cookies.get("dashboard_access")?.value;
 
-  if (expectedPassword && accessCookie === expectedPassword) {
+  if (expectedPassword && accessCookie === await passwordToken(expectedPassword)) {
     return NextResponse.next();
   }
 
