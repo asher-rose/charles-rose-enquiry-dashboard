@@ -1,8 +1,10 @@
-export default function LoginPage({
+export default async function LoginPage({
   searchParams
 }: {
-  searchParams?: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
+  const params = await searchParams;
+  const hasError = Boolean(params.error);
   return (
     <main className="login-page">
       <section className="login-panel">
@@ -12,7 +14,7 @@ export default function LoginPage({
         <form action="/api/login" method="post">
           <label htmlFor="password">Password</label>
           <input id="password" name="password" type="password" autoComplete="current-password" required />
-          {searchParams?.error ? <div className="error">Incorrect password. Please try again.</div> : null}
+          {hasError ? <div className="error">Incorrect password. Please try again.</div> : null}
           <button type="submit">View Dashboard</button>
         </form>
       </section>
