@@ -120,6 +120,7 @@
     .section-note { color: var(--muted); font-size: 13px; line-height: 1.45; margin: -8px 0 16px; }
     .chart { width: 100%; height: 300px; display: block; overflow: visible; }
     .chart.small { height: 220px; }
+    .chart.material-chart { height: 390px; }
     .axis { stroke: var(--line-dark); stroke-width: 1; }
     .gridline { stroke: #ebe5da; stroke-width: 1; }
     .label { fill: var(--muted); font-size: 11px; }
@@ -144,6 +145,10 @@
     .chart-point { cursor: pointer; outline: none; }
     .chart-point:focus-visible { stroke: var(--deep); stroke-width: 2; }
     .stack-label { fill: var(--panel); font-size: 10px; font-weight: 500; pointer-events: none; }
+    .material-lane { stroke: #ebe5da; stroke-width: 1; }
+    .material-lane-label { fill: var(--ink); font-size: 12px; font-weight: 500; }
+    .material-lane-stat { fill: var(--muted); font-size: 11px; }
+    .material-lane-value { fill: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 18px; }
     .chart-tooltip {
       position: fixed;
       z-index: 50;
@@ -278,6 +283,7 @@
       .brand { font-size: 24px; }
       .metric-card { grid-column: 1 / -1; }
       .chart { height: 230px; }
+      .chart.material-chart { height: 420px; }
       .intent-main { grid-template-columns: minmax(100px, 1fr) 1.5fr 44px; }
       .momentum-row { grid-template-columns: minmax(160px, 1fr) repeat(2, minmax(64px, 0.3fr)); }
       .momentum-row div:nth-child(4), .momentum-row div:nth-child(5) { display: none; }
@@ -362,10 +368,9 @@
     </section>
     <section class="grid" style="margin-top:14px">
       <div class="card wide">
-        <h2>Material mix in ring enquiries</h2>
-        <div class="section-note">Quarterly mix of known material signals in ring-related enquiries. Each bar totals 100%, so it shows preference share rather than enquiry volume. White gold, yellow gold, rose gold and platinum include shorthand such as WG, YG, RG, plat and PT950; generic “gold” is included with yellow gold as an ambiguous signal.</div>
-        <svg class="chart" id="materialChart" role="img" aria-label="Quarterly ring material enquiry mix stacked bars"></svg>
-        <div class="legend" id="materialLegend"></div>
+        <h2>Material preference trend</h2>
+        <div class="section-note">Quarterly share of known material signals in ring-related enquiries, shown separately for each material on the same 0-100% scale. This makes it easier to see whether demand for each metal is rising, falling or stable. Shorthand such as WG, YG, RG, plat and PT950 is included; generic “gold” is treated as an ambiguous yellow-gold signal.</div>
+        <svg class="chart material-chart" id="materialChart" role="img" aria-label="Quarterly ring material preference trend lines"></svg>
       </div>
       <div class="card side">
         <h2>Ring material signals</h2>
@@ -532,6 +537,48 @@
       attachPointTooltips(svg, labels, series);
     }
 
+    function svgMaterialTrendChart(svgId, labels, series) {
+      const svg = document.getElementById(svgId);
+      const width = 820, height = 390;
+      const pad = { left: 148, right: 118, top: 10, bottom: 34 };
+      const laneHeight = (height - pad.top - pad.bottom) / Math.max(1, series.length);
+      const plotWidth = width - pad.left - pad.right;
+      const x = i => pad.left + (labels.length <= 1 ? plotWidth / 2 : i * plotWidth / (labels.length - 1));
+      const labelEvery = Math.max(1, Math.ceil(labels.length / 6));
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      const rows = series.map((s, seriesIndex) => {
+        const laneTop = pad.top + seriesIndex * laneHeight;
+        const laneInnerTop = laneTop + 12;
+        const laneInnerBottom = laneTop + laneHeight - 18;
+        const y = value => laneInnerBottom - (value / 100) * (laneInnerBottom - laneInnerTop);
+        const points = s.values.map((value, i) => `${x(i)},${y(value)}`).join(" ");
+        const circles = s.values.map((value, i) => `<circle class="chart-point" tabindex="0" data-series-index="${seriesIndex}" data-point-index="${i}" cx="${x(i)}" cy="${y(value)}" r="3" fill="${s.color}"></circle>`).join("");
+        const lastIndex = Math.max(0, s.values.length - 1);
+        const previousIndex = Math.max(0, s.values.length - 2);
+        const latest = s.values[lastIndex] || 0;
+        const previous = s.values[previousIndex] || 0;
+        const change = latest - previous;
+        const changeText = `${change >= 0 ? "+" : ""}${Math.round(change)} pts vs prior quarter`;
+        const countText = `${fmt.format(s.counts[lastIndex] || 0)} of ${fmt.format(s.totals[lastIndex] || 0)} signals`;
+        return `
+          <line class="material-lane" x1="${pad.left}" y1="${laneInnerBottom}" x2="${width - pad.right}" y2="${laneInnerBottom}"></line>
+          <line class="gridline" x1="${pad.left}" y1="${y(50)}" x2="${width - pad.right}" y2="${y(50)}"></line>
+          <line class="material-lane" x1="${pad.left}" y1="${laneInnerTop}" x2="${width - pad.right}" y2="${laneInnerTop}"></line>
+          <rect x="0" y="${laneTop}" width="${width}" height="${laneHeight}" fill="transparent"></rect>
+          <line x1="28" y1="${laneTop + 24}" x2="48" y2="${laneTop + 24}" stroke="${s.color}" stroke-width="2.4"></line>
+          <text class="material-lane-label" x="56" y="${laneTop + 28}">${escapeHtml(s.name)}</text>
+          <text class="material-lane-value" x="${width - pad.right + 18}" y="${laneTop + 28}">${Math.round(latest)}%</text>
+          <text class="material-lane-stat" x="${width - pad.right + 18}" y="${laneTop + 46}">${escapeHtml(countText)}</text>
+          <text class="material-lane-stat" x="${width - pad.right + 18}" y="${laneTop + 62}">${escapeHtml(changeText)}</text>
+          <polyline class="series-line" points="${points}" stroke="${s.color}"></polyline>
+          ${circles}
+        `;
+      }).join("");
+      const xLabels = labels.map((label, i) => i % labelEvery === 0 || i === labels.length - 1 ? `<text class="label" x="${x(i)}" y="${height-10}" text-anchor="middle">${label}</text>` : "").join("");
+      svg.innerHTML = `${rows}<text class="label" x="${pad.left - 10}" y="${pad.top + 12}" text-anchor="end">100%</text><text class="label" x="${pad.left - 10}" y="${pad.top + (height - pad.top - pad.bottom) / 2 + 4}" text-anchor="end">50%</text><text class="label" x="${pad.left - 10}" y="${height - pad.bottom}" text-anchor="end">0%</text>${xLabels}`;
+      attachPointTooltips(svg, labels, series);
+    }
+
     function stackedBars() {
       const svg = document.getElementById("typeChart");
       const width = 420, height = 220;
@@ -630,7 +677,6 @@
     }
 
     function materialChart() {
-      const selected = lineFocus.material;
       const quarterMap = new Map();
       data.months.forEach((month, monthIndex) => {
         const [year, monthNumber] = month.split("-").map(Number);
@@ -660,12 +706,11 @@
         tooltipLabel: material.material,
         values: countsByMaterial[i].map((count, periodIndex) => periodTotals[periodIndex] ? count / periodTotals[periodIndex] * 100 : 0),
         tooltipValue: (value, periodIndex) => `${value.toFixed(1)}% (${fmt.format(countsByMaterial[i][periodIndex] || 0)} of ${fmt.format(periodTotals[periodIndex] || 0)} known material signals)`,
-        color: colors[i % colors.length],
-        highlight: !selected || selected === material.key,
-        dim: selected && selected !== material.key
+        counts: countsByMaterial[i],
+        totals: periodTotals,
+        color: colors[i % colors.length]
       }));
-      svgStackedPercentChart("materialChart", labels, series, "material");
-      renderLegend("materialLegend", series, "material", materialChart);
+      svgMaterialTrendChart("materialChart", labels, series);
     }
 
     const periodState = { mode: "6", start: "", end: "" };
