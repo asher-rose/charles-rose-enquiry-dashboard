@@ -331,19 +331,6 @@
         <div id="intentBars"></div>
       </div>
     </section>
-    <section class="grid" style="margin-top:14px">
-      <div class="card wide">
-        <h2>Material demand in ring enquiries</h2>
-        <div class="section-note">Monthly material mentions in ring-related enquiries. White gold, yellow gold, rose gold and platinum include common jewellery shorthand such as WG, YG, RG, 18ct WG, plat and PT950. Generic “gold” is included with yellow gold as an ambiguous signal.</div>
-        <svg class="chart" id="materialChart" role="img" aria-label="Monthly ring material enquiry trend lines"></svg>
-        <div class="legend" id="materialLegend"></div>
-      </div>
-      <div class="card side">
-        <h2>Ring material signals</h2>
-        <div class="section-note">Totals count enquiries where a material was detected. One enquiry can mention more than one material.</div>
-        <div id="materialBars"></div>
-      </div>
-    </section>
     <section class="card full" style="margin-top:14px">
       <h2>Recent product momentum</h2>
       <div class="momentum-list" id="momentumRows"></div>
@@ -371,6 +358,19 @@
       </div>
       <svg class="chart" id="recentProductChart" role="img" aria-label="Top product enquiries by selected period"></svg>
       <div class="legend" id="recentProductLegend"></div>
+    </section>
+    <section class="grid" style="margin-top:14px">
+      <div class="card wide">
+        <h2>Material share in ring enquiries</h2>
+        <div class="section-note">Monthly share of detected material mentions in ring-related enquiries. White gold, yellow gold, rose gold and platinum include common jewellery shorthand such as WG, YG, RG, 18ct WG, plat and PT950. Generic “gold” is included with yellow gold as an ambiguous signal.</div>
+        <svg class="chart" id="materialChart" role="img" aria-label="Monthly ring material enquiry share trend lines"></svg>
+        <div class="legend" id="materialLegend"></div>
+      </div>
+      <div class="card side">
+        <h2>Ring material signals</h2>
+        <div class="section-note">Totals count enquiries where a material was detected. One enquiry can mention more than one material.</div>
+        <div id="materialBars"></div>
+      </div>
     </section>
   </main>
   <div class="chart-tooltip" id="chartTooltip" role="status" aria-live="polite"></div>
@@ -431,9 +431,10 @@
       const item = series[seriesIndex];
       const value = item.values[pointIndex] || 0;
       const label = item.tooltipLabel || item.name;
+      const valueText = item.tooltipValue ? item.tooltipValue(value, pointIndex) : `${fmt.format(value)} enquiries`;
       tooltip.innerHTML = `
         <div class="tooltip-label">${escapeHtml(label)}</div>
-        <div class="tooltip-value">${fmt.format(value)} enquiries</div>
+        <div class="tooltip-value">${escapeHtml(valueText)}</div>
         <div class="tooltip-month">${escapeHtml(labels[pointIndex] || "")}</div>
       `;
       tooltip.classList.add("visible");
@@ -480,12 +481,13 @@
       const pad = { left: 44, right: 20, top: 18, bottom: 34 };
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       const allValues = series.flatMap(s => s.values);
-      const max = Math.max(1, ...allValues);
+      const max = options.maxValue || Math.max(1, ...allValues);
       const x = i => pad.left + (labels.length <= 1 ? 0 : i * (width - pad.left - pad.right) / (labels.length - 1));
       const y = v => height - pad.bottom - (v / max) * (height - pad.top - pad.bottom);
-      const ticks = [0, Math.ceil(max / 2), max];
+      const ticks = options.ticks || [0, Math.ceil(max / 2), max];
+      const valueFormatter = options.valueFormatter || (value => fmt.format(value));
       const labelEvery = Math.max(1, Math.ceil(labels.length / 8));
-      const grid = ticks.map(t => `<line class="gridline" x1="${pad.left}" y1="${y(t)}" x2="${width-pad.right}" y2="${y(t)}"></line><text class="label" x="${pad.left-8}" y="${y(t)+4}" text-anchor="end">${fmt.format(t)}</text>`).join("");
+      const grid = ticks.map(t => `<line class="gridline" x1="${pad.left}" y1="${y(t)}" x2="${width-pad.right}" y2="${y(t)}"></line><text class="label" x="${pad.left-8}" y="${y(t)+4}" text-anchor="end">${valueFormatter(t)}</text>`).join("");
       const paths = series.map((s, si) => {
         const points = s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
         const opacity = s.dim ? 0.12 : 1;
@@ -596,17 +598,25 @@
 
     function materialChart() {
       const selected = lineFocus.material;
+      const materialTotalsByMonth = data.months.map((_, monthIndex) =>
+        (data.ringMaterials || []).reduce((sum, material) => sum + (material.values[monthIndex] || 0), 0)
+      );
       const series = (data.ringMaterials || []).map((material, i) => ({
         key: material.key,
         name: material.material,
         legendLabel: material.material,
         tooltipLabel: material.material,
-        values: material.values,
+        values: material.values.map((count, monthIndex) => materialTotalsByMonth[monthIndex] ? count / materialTotalsByMonth[monthIndex] * 100 : 0),
+        tooltipValue: (value, monthIndex) => `${value.toFixed(1)}% (${fmt.format(material.values[monthIndex] || 0)} enquiries)`,
         color: colors[i % colors.length],
         highlight: !selected || selected === material.key,
         dim: selected && selected !== material.key
       }));
-      svgLineChart("materialChart", data.months, series);
+      svgLineChart("materialChart", data.months, series, {
+        maxValue: 100,
+        ticks: [0, 50, 100],
+        valueFormatter: value => `${Math.round(value)}%`
+      });
       renderLegend("materialLegend", series, "material", materialChart);
     }
 
